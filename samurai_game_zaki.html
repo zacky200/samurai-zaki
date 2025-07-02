@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Samurai: Zaki</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: black;
+      color: white;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+    canvas {
+      background: #111;
+      display: block;
+      margin: auto;
+    }
+    .controls {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 99;
+    }
+    .btn {
+      background: #222;
+      border: 2px solid white;
+      color: white;
+      padding: 10px;
+      font-size: 18px;
+      border-radius: 10px;
+      width: 60px;
+      text-align: center;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="controls">
+    <div class="btn" id="left">◀️</div>
+    <div class="btn" id="up">🔼</div>
+    <div class="btn" id="right">▶️</div>
+    <div class="btn" id="attack">🗡</div>
+    <div class="btn" id="skill">💥</div>
+  </div>
+
+  <!-- Audio -->
+  <audio id="attackSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_6bfa074a67.mp3?filename=sword-hit-7166.mp3"></audio>
+  <audio id="skillSound" src="https://cdn.pixabay.com/download/audio/2021/09/07/audio_c3fce847c0.mp3?filename=magic-blast-2-9031.mp3"></audio>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 80;
+
+    const zakiImg = new Image();
+    zakiImg.src = "./images__8_-removebg-preview.png";
+
+    const player = {
+      x: 50,
+      y: canvas.height - 100,
+      width: 60,
+      height: 90,
+      speed: 5,
+      vy: 0,
+      jumping: false,
+      hp: 3,
+      weapon: 1
+    };
+
+    const gravity = 1;
+    const enemies = [];
+    let score = 0;
+    let highScore = localStorage.getItem("highScore") || 0;
+
+    const keys = { left: false, right: false, up: false };
+
+    function drawPlayer() {
+      ctx.drawImage(zakiImg, player.x, player.y, player.width, player.height);
+    }
+
+    function updatePlayer() {
+      if (keys.left) player.x -= player.speed;
+      if (keys.right) player.x += player.speed;
+      if (keys.up && !player.jumping) {
+        player.vy = -15;
+        player.jumping = true;
+      }
+      player.y += player.vy;
+      player.vy += gravity;
+      if (player.y >= canvas.height - 100) {
+        player.y = canvas.height - 100;
+        player.vy = 0;
+        player.jumping = false;
+      }
+    }
+
+    function spawnEnemy() {
+      const types = ["robot", "monster", "ninja"];
+      const type = types[Math.floor(score / 5) % 3];
+      const hp = type === "robot" ? 1 : type === "monster" ? 2 : 3;
+      enemies.push({
+        x: canvas.width,
+        y: canvas.height - 100,
+        width: 50,
+        height: 80,
+        color: type === "robot" ? "gray" : type === "monster" ? "red" : "blue",
+        type,
+        hp
+      });
+    }
+
+    function drawEnemies() {
+      enemies.forEach((e) => {
+        ctx.fillStyle = e.color;
+        ctx.fillRect(e.x, e.y, e.width, e.height);
+      });
+    }
+
+    function updateEnemies() {
+      enemies.forEach((e) => {
+        e.x -= 2;
+      });
+    }
+
+    function attack() {
+      document.getElementById("attackSound").play();
+      enemies.forEach((e, i) => {
+        if (e.x < player.x + player.width + 10 && e.x > player.x - 10) {
+          e.hp--;
+          if (e.hp <= 0) {
+            enemies.splice(i, 1);
+            score++;
+          }
+        }
+      });
+    }
+
+    function skillAttack() {
+      document.getElementById("skillSound").play();
+      enemies.forEach((e, i) => {
+        if (player.weapon === 1) e.hp -= 1;
+        if (player.weapon === 2) e.hp -= 2;
+        if (player.weapon === 3) e.hp -= 3;
+        if (e.hp <= 0) {
+          enemies.splice(i, 1);
+          score++;
+        }
+      });
+    }
+
+    function drawUI() {
+      ctx.fillStyle = "white";
+      ctx.font = "20px sans-serif";
+      ctx.fillText("HP: " + player.hp, 10, 30);
+      ctx.fillText("Score: " + score, 10, 55);
+      ctx.fillText("High Score: " + highScore, 10, 80);
+      ctx.fillText("Samurai: " + player.weapon, 10, 105);
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      updatePlayer();
+      updateEnemies();
+      drawPlayer();
+      drawEnemies();
+      drawUI();
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highScore", highScore);
+      }
+      requestAnimationFrame(gameLoop);
+    }
+
+    setInterval(spawnEnemy, 2000);
+    gameLoop();
+
+    // Controls
+    document.getElementById("left").addEventListener("touchstart", () => keys.left = true);
+    document.getElementById("left").addEventListener("touchend", () => keys.left = false);
+    document.getElementById("right").addEventListener("touchstart", () => keys.right = true);
+    document.getElementById("right").addEventListener("touchend", () => keys.right = false);
+    document.getElementById("up").addEventListener("touchstart", () => keys.up = true);
+    document.getElementById("up").addEventListener("touchend", () => keys.up = false);
+    document.getElementById("attack").addEventListener("touchstart", attack);
+    document.getElementById("skill").addEventListener("touchstart", skillAttack);
+
+    // Keyboard support
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") keys.left = true;
+      if (e.key === "ArrowRight") keys.right = true;
+      if (e.key === "ArrowUp") keys.up = true;
+      if (e.key === "a") attack();
+      if (e.key === "s") skillAttack();
+      if (e.key === "1") player.weapon = 1;
+      if (e.key === "2") player.weapon = 2;
+      if (e.key === "3") player.weapon = 3;
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowLeft") keys.left = false;
+      if (e.key === "ArrowRight") keys.right = false;
+      if (e.key === "ArrowUp") keys.up = false;
+    });
+  </script>
+</body>
+</html>
